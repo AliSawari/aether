@@ -45,11 +45,13 @@
       "../scripts/wgctl.sh": "scripts/wgctl.sh",
       "../LICENSE": "LICENSE"
     },
-    "deb": {
-      "depends": [
-        "wireguard-tools",
-        "policykit-1"
-      ]
+    "linux": {
+      "deb": {
+        "depends": [
+          "wireguard-tools",
+          "policykit-1"
+        ]
+      }
     }
   },
   "plugins": {}
