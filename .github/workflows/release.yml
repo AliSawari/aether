@@ -57,11 +57,22 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1 || true)
+          VERSION="${TAG#v}"
 
           {
             echo "## What's Changed"
             echo ""
-            if [ -n "$PREV_TAG" ]; then
+            if [ -f CHANGELOG.md ] && awk -v ver="$VERSION" '
+              $0 ~ "^## \\[" ver "\\]" { found=1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md | grep -q .; then
+              awk -v ver="$VERSION" '
+                $0 ~ "^## \\[" ver "\\]" { found=1; next }
+                found && /^## \[/ { exit }
+                found { print }
+              ' CHANGELOG.md
+            elif [ -n "$PREV_TAG" ]; then
               git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s (%h)" --no-merges
             else
               git log --pretty=format:"- %s (%h)" --no-merges
@@ -74,6 +85,10 @@ jobs:
             echo "|--------|----------------|"
             echo "| \`.deb\` | \`sudo dpkg -i Aether_*.deb\` |"
             echo "| AppImage | \`chmod +x Aether_*.AppImage && ./Aether_*.AppImage\` |"
+            echo ""
+            echo "## License"
+            echo ""
+            echo "MIT — see [LICENSE](https://github.com/${{ github.repository }}/blob/${TAG}/LICENSE)"
           } > RELEASE_SUMMARY.md
 
           echo "path=RELEASE_SUMMARY.md" >> "$GITHUB_OUTPUT"

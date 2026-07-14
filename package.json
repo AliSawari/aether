@@ -1,7 +1,24 @@
 {
   "name": "aether",
-  "private": true,
   "version": "0.1.0",
+  "description": "WireGuard VPN manager for Linux — workspace-based configs, native UI, system tray.",
+  "author": "Ali Sawari (https://github.com/AliSawari)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AliSawari/aether.git"
+  },
+  "homepage": "https://github.com/AliSawari/aether#readme",
+  "bugs": {
+    "url": "https://github.com/AliSawari/aether/issues"
+  },
+  "keywords": [
+    "wireguard",
+    "vpn",
+    "linux",
+    "tauri",
+    "desktop"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

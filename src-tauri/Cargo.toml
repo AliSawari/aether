@@ -1,9 +1,16 @@
 [package]
 name = "aether"
 version = "0.1.0"
-description = "WireGuard, refined."
-authors = ["you"]
+description = "WireGuard VPN manager for Linux"
+authors = ["Ali Sawari"]
+license = "MIT"
+repository = "https://github.com/AliSawari/aether"
+homepage = "https://github.com/AliSawari/aether"
 edition = "2021"
+rust-version = "1.88"
+readme = "../README.md"
+keywords = ["wireguard", "vpn", "tauri", "linux"]
+categories = ["network-programming"]
 
 [lib]
 name = "aether_lib"
