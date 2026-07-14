@@ -62,6 +62,16 @@ Production build:
 npm run tauri build
 ```
 
+## Releases
+
+Publish a release on GitHub (tag e.g. `v0.1.0`). The [Release workflow](.github/workflows/release.yml) builds Linux x86_64 `.deb` and AppImage bundles, appends a changelog summary, and attaches them to the release.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+# Then create the release on GitHub from that tag
+```
+
 ## Optional: Passwordless elevation
 
 Aether will not store your sudo password. Instead, use **Authorize once** in the sidebar —
