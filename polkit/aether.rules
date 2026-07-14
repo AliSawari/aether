@@ -1,0 +1,11 @@
+// Copy to /etc/polkit-1/rules.d/50-aether.rules
+// Allows pkexec to run Aether's wgctl.sh without repeated prompts for sudo group members.
+
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") &&
+        action.lookup("program").indexOf("wgctl.sh") >= 0 &&
+        subject.isInGroup("sudo")) {
+        return polkit.Result.YES;
+    }
+});
