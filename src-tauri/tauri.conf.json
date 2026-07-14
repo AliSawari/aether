@@ -28,7 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "category": "Network",
+    "category": "Utility",
     "copyright": "Copyright © 2026 Ali Sawari",
     "shortDescription": "WireGuard VPN manager for Linux",
     "longDescription": "Aether is a lightweight Linux desktop app for managing WireGuard connections. Pick a workspace, import provider configs, generate WiFi/Ethernet route-aware configs, and connect from a native UI or the system tray.",
