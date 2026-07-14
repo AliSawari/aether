@@ -1,5 +1,7 @@
 # Aether
 
+[![Build](https://github.com/AliSawari/aether/actions/workflows/build.yml/badge.svg)](https://github.com/AliSawari/aether/actions/workflows/build.yml)
+
 **WireGuard, refined.**
 
 A standalone Linux desktop app for managing WireGuard VPN connections. Pick any workspace folder, import provider configs, and connect with one click.
