@@ -2,7 +2,7 @@
   import { Power, RefreshCw, Shield } from "lucide-svelte";
   import type { ServerInfo, WgStatus } from "../tauri";
   import { api } from "../tauri";
-  import { loading, showToast } from "../stores";
+  import { loading, selectedServer, showToast } from "../stores";
 
   let {
     server,
@@ -11,19 +11,28 @@
   }: {
     server: ServerInfo;
     status: WgStatus;
-    onUpdate: () => void;
+    onUpdate: () => void | Promise<void>;
   } = $props();
 
   const isActive = $derived(status.connected && status.server_index === server.index);
 
-  async function run(action: () => Promise<unknown>, success: string) {
+  async function run(action: () => Promise<unknown>, success: string, opts?: { select?: boolean }) {
     loading.set(true);
     try {
       await action();
+      if (opts?.select) {
+        selectedServer.set(server.index);
+        try {
+          await api.setSelectedServer(server.index);
+        } catch {
+          /* ignore */
+        }
+      }
       showToast(success);
-      onUpdate();
+      await onUpdate();
     } catch (e) {
       showToast(String(e), "error");
+      await onUpdate();
     } finally {
       loading.set(false);
     }
@@ -69,7 +78,9 @@
       <button
         class="btn btn-primary"
         disabled={$loading || (status.connected && !isActive)}
-        onclick={() => run(() => api.connect(server.index), `Connected to ${server.host}`)}
+        onclick={() =>
+          run(() => api.connect(server.index), `Connected to ${server.host}`, { select: true })
+        }
       >
         <Power size={14} /> Connect
       </button>

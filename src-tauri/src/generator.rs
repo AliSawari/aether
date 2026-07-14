@@ -2,8 +2,17 @@ use crate::workspace::{
     detect_network, list_source_conf_files, parse_endpoint, parse_wg_conf, WorkspaceError,
 };
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use tokio::net::lookup_host;
+
+fn write_private_conf(path: &Path, content: &str) -> Result<(), WorkspaceError> {
+    fs::write(path, content)?;
+    let mut perms = fs::metadata(path)?.permissions();
+    perms.set_mode(0o600);
+    fs::set_permissions(path, perms)?;
+    Ok(())
+}
 
 #[derive(Debug)]
 struct ParsedConfig {
@@ -60,11 +69,12 @@ fn build_config(ips: &[String], cfg: &ParsedConfig, iface: &str, gateway: &str) 
     let mut post_up = String::new();
     let mut post_down = String::new();
     for ip in ips {
+        // replace = idempotent (avoids "RTNETLINK answers: File exists")
         post_up.push_str(&format!(
-            "PostUp = ip route add {ip} via {gateway} dev {iface}\n"
+            "PostUp = ip route replace {ip} via {gateway} dev {iface}\n"
         ));
         post_down.push_str(&format!(
-            "PostDown = ip route del {ip} via {gateway} dev {iface}\n"
+            "PostDown = ip route del {ip} via {gateway} dev {iface} || true\n"
         ));
     }
 
@@ -140,8 +150,8 @@ pub async fn regenerate_configs(workspace: &Path) -> Result<(), WorkspaceError> 
         let wifi = build_config(&ips, cfg, &net.interface_wifi, &net.gateway);
         let eth = build_config(&ips, cfg, &net.interface_eth, &net.gateway);
 
-        fs::write(workspace.join(format!("smart{n}-wifi.conf")), wifi)?;
-        fs::write(workspace.join(format!("smart{n}-eth.conf")), eth)?;
+        write_private_conf(&workspace.join(format!("smart{n}-wifi.conf")), &wifi)?;
+        write_private_conf(&workspace.join(format!("smart{n}-eth.conf")), &eth)?;
     }
 
     Ok(())

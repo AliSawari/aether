@@ -10,8 +10,20 @@
   } from "../stores";
   import { api } from "../tauri";
 
+  let {
+    onUpdate,
+  }: {
+    onUpdate?: () => void | Promise<void>;
+  } = $props();
+
   const selected = $derived(
     $servers.find((s) => s.index === $selectedServer) ?? $servers[0] ?? null,
+  );
+
+  const activeServer = $derived(
+    $status.server_index != null
+      ? ($servers.find((s) => s.index === $status.server_index) ?? selected)
+      : selected,
   );
 
   async function onSelect(e: Event) {
@@ -36,18 +48,26 @@
           await api.disconnect();
         }
         await api.connect(selected.index);
+        selectedServer.set(selected.index);
+        await api.setSelectedServer(selected.index);
         showToast(`Connected to ${selected.host}`);
       }
+      await onUpdate?.();
     } catch (e) {
       showToast(String(e), "error");
+      await onUpdate?.();
     } finally {
       loading.set(false);
     }
   }
 
   const isOn = $derived(
-    $status.connected && selected != null && $status.server_index === selected.index,
+    $status.connected &&
+      selected != null &&
+      $status.server_index === selected.index,
   );
+
+  const anyConnected = $derived($status.connected && $status.server_index != null);
 </script>
 
 <section class="home">
@@ -72,20 +92,22 @@
       class:on={isOn}
       disabled={$loading || !selected}
       onclick={toggle}
-      aria-label={isOn ? "Power off" : "Power on"}
+      aria-label={isOn || anyConnected ? "Power off" : "Power on"}
     >
       <Power size={64} strokeWidth={1.75} />
     </button>
 
-    <div class="state" class:on={isOn}>
-      {isOn ? "CONNECTED" : "DISCONNECTED"}
+    <div class="state" class:on={anyConnected}>
+      {anyConnected ? "CONNECTED" : "DISCONNECTED"}
     </div>
 
-    {#if selected}
+    {#if anyConnected && activeServer}
+      <div class="mono muted detail">{activeServer.host}:{activeServer.port}</div>
+    {:else if selected}
       <div class="mono muted detail">{selected.host}:{selected.port}</div>
     {/if}
 
-    {#if isOn}
+    {#if anyConnected}
       <div class="mono muted transfer">
         ↓ {$status.transfer.rx} · ↑ {$status.transfer.tx}
       </div>

@@ -25,7 +25,10 @@
 </script>
 
 <aside class="sidebar">
-  <div class="brand">AETHER</div>
+  <div class="brand">
+    <img src="/aether.svg" alt="" width="28" height="28" />
+    <span>AETHER</span>
+  </div>
   <nav>
     {#each links as link}
       <button
@@ -65,10 +68,17 @@
     backdrop-filter: blur(8px);
   }
   .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
     font-size: 1.15rem;
     font-weight: 700;
     letter-spacing: 0.28em;
     padding: 0 0.4rem;
+  }
+  .brand img {
+    flex-shrink: 0;
+    letter-spacing: 0;
   }
   nav {
     display: flex;

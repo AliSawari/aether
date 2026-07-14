@@ -37,9 +37,21 @@
       passwordless.set(elev);
 
       if (s.length > 0) {
-        const saved = await api.getSelectedServer();
-        const valid = saved && s.some((x) => x.index === saved);
-        selectedServer.set(valid ? saved : s[0].index);
+        // Live tunnel wins so Home and Config stay in sync
+        if (st.connected && st.server_index != null && s.some((x) => x.index === st.server_index)) {
+          if ($selectedServer !== st.server_index) {
+            selectedServer.set(st.server_index);
+            try {
+              await api.setSelectedServer(st.server_index);
+            } catch {
+              /* ignore */
+            }
+          }
+        } else {
+          const saved = await api.getSelectedServer();
+          const valid = saved && s.some((x) => x.index === saved);
+          selectedServer.set(valid ? saved : s[0].index);
+        }
       }
     } catch {
       /* ignore poll errors */
@@ -85,9 +97,13 @@
   <div class="main">
     <header class="header">
       {#if !$workspace}
-        <span class="logo">AETHER</span>
+        <span class="logo">
+          <img src="/aether.svg" alt="" width="32" height="32" />
+          AETHER
+        </span>
       {:else}
         <span class="page-title">
+          <img src="/aether.svg" alt="" width="26" height="26" />
           {$page === "home" ? "Home" : $page === "configs" ? "Configurations" : "About"}
         </span>
       {/if}
@@ -97,7 +113,7 @@
     {#if !$workspace}
       <WorkspacePicker />
     {:else if $page === "home"}
-      <HomePage />
+      <HomePage onUpdate={refresh} />
     {:else if $page === "configs"}
       <WorkspaceBar />
       <NetworkBar info={$network} />
@@ -127,8 +143,14 @@
     color: var(--accent);
   }
   .page-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
     font-size: 1.35rem;
     font-weight: 700;
     letter-spacing: 0.06em;
+  }
+  .page-title img {
+    flex-shrink: 0;
   }
 </style>

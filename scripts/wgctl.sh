@@ -84,12 +84,70 @@ get_active_cfg() {
     exit 1
   fi
 
-  local cfg="$BASE_DIR/${iface}.conf"
+  # Prefer first smart* interface if multiple
+  local name
+  for name in $iface; do
+    case "$name" in
+      smart*)
+        local cfg="$BASE_DIR/${name}.conf"
+        if [[ -f "$cfg" ]]; then
+          echo "$cfg"
+          return 0
+        fi
+        ;;
+    esac
+  done
+
+  local cfg="$BASE_DIR/${iface%% *}.conf"
   if [[ ! -f "$cfg" ]]; then
-    echo "ERROR: Config file not found: $cfg" >&2
+    echo "ERROR: Config file not found for active interface(s): $iface" >&2
     exit 1
   fi
   echo "$cfg"
+}
+
+# Make PostUp/PostDown idempotent on existing generated confs (no regenerate needed)
+harden_conf() {
+  local cfg="$1"
+  $SUDO chmod 600 "$cfg" 2>/dev/null || chmod 600 "$cfg" 2>/dev/null || true
+
+  if ! grep -q 'PostUp = ip route add ' "$cfg" 2>/dev/null; then
+    return 0
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  sed \
+    -e 's/PostUp = ip route add /PostUp = ip route replace /g' \
+    -e 's/^\(PostDown = ip route del [^|]*\)$/\1 || true/' \
+    "$cfg" > "$tmp"
+
+  if [[ -w "$cfg" ]]; then
+    cat "$tmp" > "$cfg"
+  else
+    $SUDO tee "$cfg" < "$tmp" >/dev/null
+  fi
+  rm -f "$tmp"
+  $SUDO chmod 600 "$cfg" 2>/dev/null || chmod 600 "$cfg" 2>/dev/null || true
+}
+
+# Tear down any leftover smart* WG interfaces (partial/failed sessions)
+force_down_all_smart() {
+  local name cfg
+  for name in $($SUDO wg show interfaces 2>/dev/null || true); do
+    case "$name" in
+      smart*)
+        cfg="$BASE_DIR/${name}.conf"
+        if [[ -f "$cfg" ]]; then
+          $SUDO $WGQ down "$cfg" 2>/dev/null || true
+        fi
+        # If still present, yank the link
+        if $SUDO ip link show "$name" &>/dev/null; then
+          $SUDO ip link delete "$name" 2>/dev/null || true
+        fi
+        ;;
+    esac
+  done
 }
 
 cmd_up() {
@@ -100,15 +158,67 @@ cmd_up() {
     echo "ERROR: Config not found: $cfg (run Regenerate first)" >&2
     exit 1
   fi
+
+  harden_conf "$cfg"
+
+  local want
+  want=$(basename "$cfg" .conf)
+
+  # Already connected to this server
+  if $SUDO wg show interfaces 2>/dev/null | grep -qw "$want"; then
+    echo "Already connected: $want"
+    return 0
+  fi
+
+  # Clear leftover tunnels so we never hit "already exists" / sticky routes
+  force_down_all_smart
+
   echo "↑ Bringing up $cfg"
-  $SUDO $WGQ up "$cfg"
+  local err
+  set +e
+  err=$($SUDO $WGQ up "$cfg" 2>&1)
+  local rc=$?
+  set -e
+
+  if [[ $rc -eq 0 ]]; then
+    echo "Connected: $want"
+    return 0
+  fi
+
+  # Interface up despite noise (resolvconf etc.)
+  if $SUDO wg show interfaces 2>/dev/null | grep -qw "$want"; then
+    echo "Connected with warnings: $want"
+    return 0
+  fi
+
+  # Retry once after force-clean (handles half-applied PostUp)
+  force_down_all_smart
+  set +e
+  err=$($SUDO $WGQ up "$cfg" 2>&1)
+  rc=$?
+  set -e
+
+  if [[ $rc -eq 0 ]] || $SUDO wg show interfaces 2>/dev/null | grep -qw "$want"; then
+    echo "Connected: $want"
+    return 0
+  fi
+
+  echo "$err" | grep -vE '^(\[#\]|Warning:)' | tail -n 12 >&2 || true
+  echo "ERROR: wg-quick failed to bring up $want" >&2
+  exit 1
 }
 
 cmd_down() {
-  local cfg
-  cfg=$(get_active_cfg)
-  echo "↓ Bringing down $cfg"
-  $SUDO $WGQ down "$cfg"
+  local cfg=""
+  set +e
+  cfg=$(get_active_cfg 2>/dev/null)
+  set -e
+  if [[ -n "$cfg" && -f "$cfg" ]]; then
+    echo "↓ Bringing down $cfg"
+    $SUDO $WGQ down "$cfg" 2>/dev/null || true
+  fi
+  force_down_all_smart
+  echo "Disconnected"
 }
 
 cmd_restart() {

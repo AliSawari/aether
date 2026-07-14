@@ -1,5 +1,5 @@
 use crate::generator;
-use crate::wg::{get_wg_status, WgStatus};
+use crate::wg::{get_wg_status, parse_wg_show, WgStatus};
 use crate::workspace::{
     detect_network, list_servers, load_settings, save_settings, set_workspace, workspace_path,
     NetworkInfo, ServerInfo, WorkspaceError,
@@ -39,32 +39,70 @@ fn current_user() -> Result<String, String> {
         .map_err(|_| "Could not determine current user".to_string())
 }
 
-fn run_wgctl(app: &AppHandle, workspace: &Path, args: &[&str]) -> Result<String, String> {
-    let script = wgctl_path(app)?;
+fn clean_wg_message(raw: &str) -> String {
+    let cleaned: String = raw
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            !t.is_empty()
+                && !t.starts_with("[#]")
+                && !t.starts_with("Warning:")
+                && !t.starts_with("↑")
+                && !t.starts_with("↓")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() {
+        raw.lines()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("WireGuard command failed")
+            .trim()
+            .to_string()
+    } else {
+        cleaned.to_string()
+    }
+}
 
-    // Prefer passwordless sudo after one-time Authorize.
-    let sudo_out = Command::new("sudo")
+/// Run wgctl with passwordless sudo only (no pkexec). Used for status polling.
+fn run_wgctl_noprompt(app: &AppHandle, workspace: &Path, args: &[&str]) -> Result<String, String> {
+    let script = wgctl_path(app)?;
+    let output = Command::new("sudo")
         .arg("-n")
         .arg(&script)
         .arg("--workspace")
         .arg(workspace)
         .args(args)
-        .output();
+        .output()
+        .map_err(|e| format!("Failed to run wgctl: {e}"))?;
 
-    if let Ok(output) = sudo_out {
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        let needs_password = stderr.contains("a password is required")
-            || stderr.contains("password is required")
-            || stderr.contains("PasswordRequired");
-        if output.status.success() {
-            return Ok(stdout);
-        }
-        if !needs_password {
-            // Real command failure (not auth) — surface it
-            return Err(if stderr.is_empty() { stdout } else { stderr });
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        let raw = if stderr.is_empty() { stdout } else { stderr };
+        return Err(clean_wg_message(&raw));
+    }
+    Ok(stdout)
+}
+
+fn run_wgctl(app: &AppHandle, workspace: &Path, args: &[&str]) -> Result<String, String> {
+    // Prefer passwordless sudo after one-time Authorize.
+    match run_wgctl_noprompt(app, workspace, args) {
+        Ok(stdout) => return Ok(stdout),
+        Err(stderr) => {
+            let needs_password = stderr.contains("a password is required")
+                || stderr.contains("password is required")
+                || stderr.contains("PasswordRequired")
+                || stderr.contains("a terminal is required")
+                || stderr.to_lowercase().contains("password");
+            if !needs_password {
+                return Err(stderr);
+            }
         }
     }
+
+    let script = wgctl_path(app)?;
 
     // Fall back to pkexec (prompts password every time until Authorize).
     let output = Command::new("pkexec")
@@ -78,7 +116,8 @@ fn run_wgctl(app: &AppHandle, workspace: &Path, args: &[&str]) -> Result<String,
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
     if !output.status.success() {
-        return Err(if stderr.is_empty() { stdout } else { stderr });
+        let raw = if stderr.is_empty() { stdout } else { stderr };
+        return Err(clean_wg_message(&raw));
     }
     Ok(stdout)
 }
@@ -125,7 +164,14 @@ pub fn get_servers() -> Result<Vec<ServerInfo>, String> {
 }
 
 #[tauri::command]
-pub fn get_status() -> Result<WgStatus, String> {
+pub fn get_status(app: AppHandle) -> Result<WgStatus, String> {
+    // Installed builds: `wg show` needs root, but sudoers only allows wgctl.sh.
+    // Poll via elevated wgctl status (no pkexec — would prompt every few seconds).
+    if let Ok(ws) = require_workspace() {
+        if let Ok(output) = run_wgctl_noprompt(&app, &ws, &["status"]) {
+            return Ok(parse_wg_show(&output));
+        }
+    }
     Ok(get_wg_status())
 }
 

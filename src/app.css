@@ -77,10 +77,18 @@ button {
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: 0.35em;
   color: var(--text);
+}
+
+.logo img {
+  flex-shrink: 0;
+  letter-spacing: 0;
 }
 
 .card {
