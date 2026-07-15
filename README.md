@@ -7,6 +7,19 @@
 
 A standalone Linux desktop app for managing WireGuard VPN connections. Pick any workspace folder, import provider configs, and connect with one click.
 
+## Screenshots
+
+<p align="center">
+  <img src="public/shot1.png" alt="Aether Home — connected with live transfer stats" width="420" />
+  &nbsp;&nbsp;
+  <img src="public/shot2.png" alt="Aether Configurations — workspace, server cards, and controls" width="420" />
+</p>
+
+<p align="center">
+  <b>Home</b> — one-click connect with live status &nbsp;·&nbsp;
+  <b>Configurations</b> — import, regenerate, and manage servers
+</p>
+
 ## Features
 
 - User-chosen workspace directory (any folder on disk)
