@@ -1,9 +1,14 @@
-# Aether
+# Aether 
 
 [![Build](https://github.com/AliSawari/aether/actions/workflows/build.yml/badge.svg)](https://github.com/AliSawari/aether/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+**English** | [Español](https://github.com/AliSawari/aether/blob/master/README.es-ES.md)
+
 **WireGuard, refined.**
+
+> [!IMPORTANT]
+> **Disclaimer:** This repository is **not associated in any way** with [Aether - The Anti Censorship Engine](https://github.com/CluvexStudio/Aether) (`CluvexStudio/Aether`). The two projects are unrelated and share only a similar name.
 
 A standalone Linux desktop app for managing WireGuard VPN connections. Pick any workspace folder, import provider configs, and connect with one click.
 
@@ -149,6 +154,15 @@ sudo cp polkit/aether.rules /etc/polkit-1/rules.d/50-aether.rules
 | `src-tauri/src/commands.rs` | Tauri commands, elevation, `wgctl` orchestration |
 | `scripts/wgctl.sh` | Connect / disconnect / restart (bundled with releases) |
 | Svelte frontend | UI, workspace picker, server cards, tray |
+
+## Translations
+
+- 🇬🇧 English — this file
+- 🇪🇸 [Español](https://github.com/AliSawari/aether/blob/master/README.es-ES.md)
+
+## Disclaimer
+
+This project is **not affiliated with, endorsed by, or associated in any way** with [Aether - The Anti Censorship Engine](https://github.com/CluvexStudio/Aether). Any similarity in name is coincidental.
 
 ## License
 
